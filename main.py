@@ -1,109 +1,96 @@
-import PyPDF2
+import os
 import openai
-import nltk
-from nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from nltk.tokenize import sent_tokenize
+from PyPDF2 import PdfFileReader
 
-# Download necessary NLTK resources (run this once)
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('wordnet')
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Function to preprocess the data
-def preprocess_data(data):
-    # Tokenize the text into sentences and words
-    sentences = sent_tokenize(data)
-    words = [word.lower() for sentence in sentences for word in word_tokenize(sentence)]
+class SimpleChatbot:
+    def __init__(self, filepath):
+        # Loading the text from the file
+        with open(filepath, 'r') as f:
+            raw_text = f.read()
 
-    # Remove stopwords
-    stop_words = set(stopwords.words('english'))
-    words = [word for word in words if word not in stop_words]
+        # Splitting the text into sentences
+        self.text = sent_tokenize(raw_text)
 
-    # Lemmatize the words
-    lemmatizer = WordNetLemmatizer()
-    words = [lemmatizer.lemmatize(word) for word in words]
+        # Initialize TfidfVectorizer and transform the text
+        self.vectorizer = TfidfVectorizer(stop_words='english')
+        self.text_vectors = self.vectorizer.fit_transform(self.text)
 
-    return words
+    def find_relevant_section(self, question):
+        # Transform the question into tf-idf vector
+        question_vector = self.vectorizer.transform([question])
 
-# Used to read the whole PDF file and use num_pages to read only the first few pages
-def read_pdf(file, num_pages):
-    # Read the PDF file
-    pdf_file = open(file, 'rb')
-    read_pdf = PyPDF2.PdfReader(pdf_file)
+        # Compute the cosine similarity between the question vector and the text vectors
+        similarities = cosine_similarity(question_vector, self.text_vectors)
 
-    # Get the number of pages
-    total_pages = len(read_pdf.pages)
+        # Find the section with the highest cosine similarity
+        most_similar_index = similarities.argmax()
 
-    # Determine the actual number of pages to read
-    num_pages_to_read = min(num_pages, total_pages)
+        # If none of the sections are similar to the question, return None
+        if similarities[0][most_similar_index] == 0:
+            return None
+        else:
+            return self.text[most_similar_index]
 
-    # Read the selected pages
-    data = ''
-    for i in range(num_pages_to_read):
-        page = read_pdf.pages[i]
-        data += page.extract_text()
+    def generate_response(self, section, question):
+        prompt = section + "\n" + question + "\n"
 
-    return data
+        if OPENAI_API_KEY is None:
+            raise Exception("Please set your OpenAI API key as an environment variable.")
 
-# Used to store data to a .txt file
-def store_data(data):
-    with open('stored_info.txt', 'w', encoding='utf-8') as f:
-        f.write(data)
+        openai.api_key = OPENAI_API_KEY
 
-# Function to extract information from the preprocessed data
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=prompt,
+            temperature=0.5,
+            max_tokens=100,
+        )
 
+        generated_text = response.choices[0].text.strip()
 
-def parse_data_to_answer_question(data, question):
-    # Preprocess the data
-    words = preprocess_data(data)
+        return generated_text
 
-    # Placeholder example: Perform simple keyword matching
-    answer = ""
-    for word in words:
-        if question.lower() in word:
-            answer = "Found a relevant keyword: " + word
-            break
-
-    # Return the answer
-    return answer
-openai.api_key = 'YOUR_API_KEY'
-
-def generate_response(question):
-    # Make a request to the OpenAI API
-    response = openai.Completion.create(
-        engine='text-davinci-003',
-        prompt=question,
-        max_tokens=100,
-        n=1,
-        stop=None,
-        temperature=0.7
-    )
-    
-    # Extract the generated response
-    generated_response = response.choices[0].text.strip()
-    
-    return generated_response
+    def ask_question(self, question):
+        section = self.find_relevant_section(question)
+        if section is None:
+            return "Sorry, I don't know the answer to that question."
+        else:
+            return self.generate_response(section, question)
 
 
-# Example usage
-pdf_file = 'ABA_ai_book1.pdf'
-question = input('Ask a question: ')
+def pdf_to_text(pdf_path, txt_path):
+    # Open the PDF file
+    with open(pdf_path, 'rb') as f:
+        pdf = PdfFileReader(f)
 
-# Ask the user for the number of pages to read
-num_pages = int(input('How many pages to read? '))
+        # Initialize a string to store the text
+        text = ""
 
-# Read the PDF file
-data = read_pdf(pdf_file, num_pages)
+        # Loop through each page in the PDF and add its text to the string
+        for page_num in range(pdf.getNumPages()):
+            text += pdf.getPage(page_num).extractText()
 
-# Store the data in a text file
-store_data(data)
+    # Write the text to the output text file
+    with open(txt_path, 'w') as f:
+        f.write(text)
 
-# Parse the data to answer the question
-answer = parse_data_to_answer_question(data, question)
 
-if not answer:
-    answer = generate_response(question)
+# Convert the PDF to a text file
+pdf_to_text('path_to_your_pdf_file.pdf', 'path_to_your_text_file.txt')
 
-# Print the answer
-print(answer)
+# Create a chatbot instance with the path to the text file
+chatbot = SimpleChatbot('path_to_your_text_file.txt')
+
+# Ask the user for their question
+question = input("Please enter your question: ")
+
+# Get the response
+response = chatbot.ask_question(question)
+
+# Print the response
+print("Response: ", response)
