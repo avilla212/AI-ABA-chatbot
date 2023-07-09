@@ -1,16 +1,15 @@
-import os
 import openai
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from nltk.tokenize import sent_tokenize
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfReader
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 
 class SimpleChatbot:
     def __init__(self, filepath):
         # Loading the text from the file
-        with open(filepath, 'r') as f:
+        with open(filepath, 'r', encoding='utf-8') as f:
             raw_text = f.read()
 
         # Splitting the text into sentences
@@ -38,12 +37,11 @@ class SimpleChatbot:
 
     def generate_response(self, section, question):
         prompt = section + "\n" + question + "\n"
-
-        if OPENAI_API_KEY is None:
-            raise Exception("Please set your OpenAI API key as an environment variable.")
-
-        openai.api_key = OPENAI_API_KEY
-
+        
+        api_key = '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'
+        
+        openai.api_key = api_key
+        
         response = openai.Completion.create(
             engine="text-davinci-003",
             prompt=prompt,
@@ -64,27 +62,26 @@ class SimpleChatbot:
 
 
 def pdf_to_text(pdf_path, txt_path):
-    # Open the PDF file
-    with open(pdf_path, 'rb') as f:
-        pdf = PdfFileReader(f)
+     # Open the PDF file
+    pdf = PdfReader(pdf_path)
 
-        # Initialize a string to store the text
-        text = ""
+    # Initialize a string to store the text
+    text = ""
 
-        # Loop through each page in the PDF and add its text to the string
-        for page_num in range(pdf.getNumPages()):
-            text += pdf.getPage(page_num).extractText()
+    # Loop through each page in the PDF and add its text to the string
+    for page in pdf.pages:
+        text += page.extract_text()
 
     # Write the text to the output text file
-    with open(txt_path, 'w') as f:
+    with open(txt_path, 'w', encoding='utf-8') as f:
         f.write(text)
 
 
 # Convert the PDF to a text file
-pdf_to_text('path_to_your_pdf_file.pdf', 'path_to_your_text_file.txt')
+pdf_to_text('ABA_ai_book1.pdf', 'stored_info.txt')
 
 # Create a chatbot instance with the path to the text file
-chatbot = SimpleChatbot('path_to_your_text_file.txt')
+chatbot = SimpleChatbot('stored_info.txt')
 
 # Ask the user for their question
 question = input("Please enter your question: ")
