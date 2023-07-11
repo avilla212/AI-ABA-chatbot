@@ -1,11 +1,8 @@
 import openai
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from PyPDF2 import PdfReader
 from nltk.tokenize import sent_tokenize
-
-
 
 class SimpleChatbot:
     def __init__(self, filepath):
