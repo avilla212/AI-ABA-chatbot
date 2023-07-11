@@ -38,7 +38,7 @@ class SimpleChatbot:
     def generate_response(self, section, question):
         prompt = section + "\n" + question + "\n"
         
-        api_key = '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'
+        api_key = 'INSERT API KEY HERE'
         
         openai.api_key = api_key
         
