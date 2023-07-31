@@ -1,4 +1,5 @@
 import openai
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from PyPDF2 import PdfReader
@@ -36,7 +37,7 @@ class SimpleChatbot:
     def generate_response(self, section, question):
         prompt = section + "\n" + question + "\n"
         
-        api_key = 'INSERT API KEY HERE'
+        api_key = 'YOUR_API_KEY'
         
         openai.api_key = api_key
         
