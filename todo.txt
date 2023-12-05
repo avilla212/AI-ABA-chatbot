@@ -1,0 +1,2 @@
+1. Fix nltk not in path and install rest of imports
+2. Change file structure.
